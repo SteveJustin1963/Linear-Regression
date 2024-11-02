@@ -3,7 +3,7 @@
   ## Linear Regression Model Coefficient Calculation 
 is a technique used in data analysis and statistics to quantify the relationship between independent variables and a dependent variable. It involves determining the coefficients that best fit a linear equation to the data points.
 
-Analog computing, on the other hand, refers to a method of computation that uses continuous physical variables, such as electrical voltages or currents, to perform calculations. It contrasts with digital computing, which operates on discrete binary values.
+Analog computing, on the other hand, refers to a method of computation that uses continuous physical variables, such as electrical voltages or currents, to perform calculations. It contrasts with digital computing, which operates on discrete binary values. https://github.com/SteveJustin1963/tec-Analog
 
 There is no direct connection between Linear Regression Model Coefficient Calculation and analog computing. Linear regression models can be implemented using both analog and digital computing methods. The coefficient calculation itself does not depend on the computing approach but rather on statistical methods and algorithms.
 
