@@ -1,0 +1,105 @@
+// First define APU helper functions
+:A          // Initialize APU
+#16 #80 /O  // Reset command
+;
+
+:B          // Push number to APU (scaled by 10000)
+#80 /O      // Send to APU port
+;
+
+:C          // Pop result from APU
+#80 /I      // Read from APU port
+;
+
+:D          // Wait for APU ready
+/U(#81 /I #80 & /W)
+;
+
+:E          // Add two numbers
+#10 #81 /O D  // FADD command and wait
+;
+
+:F          // Subtract two numbers
+#12 #81 /O D  // FSUB command and wait
+;
+
+:G          // Multiply two numbers
+#14 #81 /O D  // FMUL command and wait
+;
+
+:H          // Divide two numbers
+#16 #81 /O D  // FDIV command and wait
+;
+
+// Store sample data in arrays
+:M [ 15000 20000 25000 30000 35000 ] x1!  // x1 values (scaled by 10)
+   [ 30000 40000 50000 60000 70000 ] x2!  // x2 values (scaled by 10000)
+   [ 2000000 2500000 3000000 3500000 4000000 ] y!  // y values (scaled by 10)
+   5 n!  // store array size
+;
+
+// Calculate means
+:N 0 s1!     // Initialize sums
+   0 s2!
+   0 sy!
+   n(        // Loop n times
+     /i x1? 10000 * s1 + s1!  // Scale and sum x1
+     /i x2? s2 + s2!          // Sum x2 (already scaled)
+     /i y? 10000 * sy + sy!   // Scale and sum y
+   )
+   s1 n B B H C m1!  // mean_x1 = sum_x1/n
+   s2 n B B H C m2!  // mean_x2 = sum_x2/n
+   sy n B B H C my!  // mean_y = sum_y/n
+;
+
+// Calculate coefficients
+:O 0 sxy1!   // Initialize sums for x1
+   0 sxx1!
+   0 sxy2!   // Initialize sums for x2
+   0 sxx2!
+   n(
+     // For x1
+     /i x1? 10000 * m1 B B F C B  // (x1[i] - mean_x1)
+     /i y? 10000 * my B B F C     // (y[i] - mean_y)
+     G C sxy1 + sxy1!             // sum += (x1[i]-mean_x1)*(y[i]-mean_y)
+     
+     /i x1? 10000 * m1 B B F C " G C  // (x1[i]-mean_x1)^2
+     sxx1 + sxx1!
+     
+     // For x2  
+     /i x2? m2 B B F C B         // (x2[i] - mean_x2)
+     /i y? 10000 * my B B F C    // (y[i] - mean_y)
+     G C sxy2 + sxy2!            // sum += (x2[i]-mean_x2)*(y[i]-mean_y)
+     
+     /i x2? m2 B B F C " G C     // (x2[i]-mean_x2)^2
+     sxx2 + sxx2!
+   )
+   
+   // Calculate coefficients
+   sxy1 sxx1 B B H C b1!  // b1 = sxy1/sxx1
+   sxy2 sxx2 B B H C b2!  // b2 = sxy2/sxx2
+;
+
+// Calculate intercept
+:P my B                    // Start with mean_y
+   m1 b1 B B G C B B F    // Subtract b1*mean_x1
+   m2 b2 B B G C B B F    // Subtract b2*mean_x2
+   C b0!                  // Store in b0
+;
+
+// Print results
+:Q `Regression Equation:` /N
+   `y = ` b0 10000 / .
+   ` + ` b1 10000 / .
+   `x1 + ` b2 10000 / .
+   `x2` /N
+;
+
+// Main regression function
+:R A      // Initialize APU
+   M      // Load data
+   N      // Calculate means
+   O      // Calculate coefficients
+   P      // Calculate intercept
+   Q      // Print results
+;
