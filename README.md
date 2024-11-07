@@ -10,36 +10,91 @@ There is no direct connection between Linear Regression Model Coefficient Calcul
 Analog computing could be used to solve the mathematical equations involved in linear regression, such as matrix operations or optimization algorithms. However, in modern practice, digital computing, especially using software libraries or programming languages, is more commonly employed for coefficient calculation due to its flexibility, accuracy, and ease of implementation.
 
 
-## ir1.c
+#### ir1.c
 
 This code is designed to calculate the coefficients for a linear regression model. The coefficients obtained using this code represent the partial correlation of each individual x-variable with the dependent variable y, after removing the influence of the other x-variables. Specifically, in your case, the coefficients b1 and b2 correspond to the partial correlation of x1 and x2 (respectively) with y, while taking into account the influence of the other x-variable.
 
-## Purpose
+#### ir1.9511mint2
 
-The purpose of this code is to accurately quantify the relationship between each independent variable and the dependent variable in a linear regression model. By accounting for the effects of other variables, it allows for the isolation of the unique impact of each x-variable on y. This helps in determining the individual contributions of x1 and x2 to the outcome variable y.
+ 
 
-## Usage
+1. Purpose:
+- This code finds a mathematical relationship between:
+  * Two independent variables (x1 and x2)
+  * One dependent variable (y)
+- It's trying to find the equation: y = b0 + b1*x1 + b2*x2
+  * b0 is the intercept
+  * b1 is coefficient for x1
+  * b2 is coefficient for x2
 
-To use this code, follow these steps:
+2. Sample Data Used:
+```
+x1: [1500, 2000, 2500, 3000, 3500]    // Could be square footage of houses
+x2: [3, 4, 5, 6, 7]                    // Could be number of bedrooms
+y:  [200000, 250000, 300000, 350000, 400000]  // Could be house prices
+```
 
-1. Ensure that you have the necessary input data for the linear regression model, including the dependent variable y and the independent variables x1 and x2.
+3. Step-by-Step Process:
 
-2. Incorporate the provided code into your existing project or create a new script.
+```
+:M [ ... ]     // Load Data
+- Stores the sample data in arrays x1, x2, and y
+- x1 values are scaled by 10 
+- x2 values scaled by 10000
+- y values scaled by 10
+- Stores array size (5) in variable n
 
-3. Run the code, ensuring that you have imported any required libraries or dependencies.
+:N             // Calculate Means
+- Calculates average of x1 values (mean_x1)
+- Calculates average of x2 values (mean_x2)
+- Calculates average of y values (mean_y)
 
-4. After running the code, the coefficients b1 and b2 will be generated. These coefficients represent the partial correlation of x1 and x2 (respectively) with y, after eliminating the influence of the other x-variable.
+:O             // Calculate Coefficients
+- For x1:
+  * Calculates sum of (x1[i] - mean_x1) * (y[i] - mean_y)
+  * Calculates sum of (x1[i] - mean_x1)²
+  * b1 = first sum / second sum
 
-5. Utilize the obtained coefficients in your analysis to draw accurate conclusions regarding the specific effects of x1 and x2 on the outcome variable y. These coefficients quantify the strength and direction of the relationship between each x-variable and y, considering the influence of other predictors has been removed.
+- For x2:
+  * Calculates sum of (x2[i] - mean_x2) * (y[i] - mean_y)
+  * Calculates sum of (x2[i] - mean_x2)²
+  * b2 = first sum / second sum
 
-## Important Considerations
+:P             // Calculate Intercept
+- Calculates b0 = mean_y - b1*mean_x1 - b2*mean_x2
 
-It's important to keep in mind the following when using the coefficients obtained from this code:
+:Q             // Print Results
+- Shows the final equation: y = b0 + b1*x1 + b2*x2
+```
 
-- The coefficients represent the partial correlation of each individual x-variable with the dependent variable y, after removing the influence of the other x-variables.
+4. Example Interpretation:
+If we get output like:
+```
+y = 50000 + 100x1 + 50000x2
+```
+This would mean:
+- Base price (b0) is $50,000
+- Each unit of x1 adds $100 to price
+- Each unit of x2 adds $50,000 to price
 
-- Ensure that you have a clear understanding of the dataset and the relationships between variables before using this code.
+So a house with:
+- x1 = 2000 (square feet)
+- x2 = 4 (bedrooms)
+Would predict price:
+- y = 50000 + (100 * 2000) + (50000 * 4)
+- y = 50000 + 200000 + 200000
+- y = 450000 ($450,000)
 
-- Interpret the coefficients appropriately, recognizing that they only reflect the impact of the specific x-variable on y, while accounting for the influence of other predictors.
+5. Why APU 9511?
+- MINT can only handle 16-bit integers
+- APU 9511 allows floating-point math
+- Gives more precise results
+- Handles larger numbers
+- Prevents overflow issues
 
-- Remember that the coefficients should be used in conjunction with other statistical measures and considerations to make informed decisions or draw accurate conclusions.
+6. Key Features:
+- Uses scaled integers (multiplied by 10000) for precision
+- APU handles all floating point operations
+- Arrays store data efficiently
+- Modular functions for each calculation step
+ 
