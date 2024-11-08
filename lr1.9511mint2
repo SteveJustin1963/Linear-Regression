@@ -1,98 +1,158 @@
-// First define APU helper functions
+// APU Control Functions
 :A          // Initialize APU
-#16 #80 /O  // Reset command
+#16 #81 /O  // Reset command - Z80 will wait automatically
 ;
 
-:B          // Push number to APU (scaled by 10000)
-#80 /O      // Send to APU port
+:B          // Push float to APU and convert
+#30 #81 /O  // FLTD command - Z80 waits via hardware
 ;
 
-:C          // Pop result from APU
-#80 /I      // Read from APU port
+:C          // Pop float from APU as integer
+#31 #81 /O  // FIXD command - Z80 waits via hardware
+#80 /I      // Read result
 ;
 
-:D          // Wait for APU ready
-/U(#81 /I #80 & /W)
+:E          // Add on APU stack
+#10 #81 /O  // FADD command - Z80 waits via hardware
 ;
 
-:E          // Add two numbers
-#10 #81 /O D  // FADD command and wait
+:F          // Subtract on APU stack
+#12 #81 /O  // FSUB command - Z80 waits via hardware
 ;
 
-:F          // Subtract two numbers
-#12 #81 /O D  // FSUB command and wait
+:G          // Multiply on APU stack
+#14 #81 /O  // FMUL command - Z80 waits via hardware
 ;
 
-:G          // Multiply two numbers
-#14 #81 /O D  // FMUL command and wait
+:H          // Divide on APU stack
+#16 #81 /O  // FDIV command - Z80 waits via hardware
 ;
 
-:H          // Divide two numbers
-#16 #81 /O D  // FDIV command and wait
+// Store data arrays - using scaled integers
+:M [ 150 200 250 300 350 ] x1!    // x1 values (scaled down by 100)
+   [ 300 400 500 600 700 ] x2!    // x2 values (scaled down by 100)
+   [ 200 250 300 350 400 ] y!     // y values (scaled down by 10)
+   5 n!  // Number of data points
 ;
 
-// Store sample data in arrays
-:M [ 15000 20000 25000 30000 35000 ] x1!  // x1 values (scaled by 10)
-   [ 30000 40000 50000 60000 70000 ] x2!  // x2 values (scaled by 10000)
-   [ 2000000 2500000 3000000 3500000 4000000 ] y!  // y values (scaled by 10)
-   5 n!  // store array size
-;
-
-// Calculate means
-:N 0 s1!     // Initialize sums
-   0 s2!
-   0 sy!
-   n(        // Loop n times
-     /i x1? 10000 * s1 + s1!  // Scale and sum x1
-     /i x2? s2 + s2!          // Sum x2 (already scaled)
-     /i y? 10000 * sy + sy!   // Scale and sum y
-   )
-   s1 n B B H C m1!  // mean_x1 = sum_x1/n
-   s2 n B B H C m2!  // mean_x2 = sum_x2/n
-   sy n B B H C my!  // mean_y = sum_y/n
-;
-
-// Calculate coefficients
-:O 0 sxy1!   // Initialize sums for x1
-   0 sxx1!
-   0 sxy2!   // Initialize sums for x2
-   0 sxx2!
+// Calculate means using APU stack
+:N 0 s1! 0 s2! 0 sy!     // Initialize sums
    n(
-     // For x1
-     /i x1? 10000 * m1 B B F C B  // (x1[i] - mean_x1)
-     /i y? 10000 * my B B F C     // (y[i] - mean_y)
-     G C sxy1 + sxy1!             // sum += (x1[i]-mean_x1)*(y[i]-mean_y)
+     // Sum x1 values
+     /i x1? #80 /O       // Push x1[i] to APU
+     B                    // Convert to float
+     s1 #80 /O B         // Push running sum
+     E                    // Add
+     C s1!               // Store back
      
-     /i x1? 10000 * m1 B B F C " G C  // (x1[i]-mean_x1)^2
-     sxx1 + sxx1!
+     // Sum x2 values  
+     /i x2? #80 /O
+     B
+     s2 #80 /O B
+     E
+     C s2!
      
-     // For x2  
-     /i x2? m2 B B F C B         // (x2[i] - mean_x2)
-     /i y? 10000 * my B B F C    // (y[i] - mean_y)
-     G C sxy2 + sxy2!            // sum += (x2[i]-mean_x2)*(y[i]-mean_y)
+     // Sum y values
+     /i y? #80 /O
+     B
+     sy #80 /O B
+     E
+     C sy!
+   )
+   
+   // Calculate means
+   s1 #80 /O B          // Push sum_x1
+   n #80 /O B           // Push n
+   H                    // Divide
+   C m1!                // Store mean_x1
+   
+   s2 #80 /O B
+   n #80 /O B
+   H
+   C m2!
+   
+   sy #80 /O B
+   n #80 /O B
+   H
+   C my!
+;
+
+// Calculate regression coefficients
+:O 0 sxy1! 0 sxx1! 0 sxy2! 0 sxx2!
+   n(
+     // For x1 term
+     /i x1? #80 /O B    // Push x1[i] as float
+     m1 #80 /O B        // Push mean_x1
+     F                   // Subtract
+     " #80 /O           // Duplicate
      
-     /i x2? m2 B B F C " G C     // (x2[i]-mean_x2)^2
-     sxx2 + sxx2!
+     /i y? #80 /O B     // Push y[i]
+     my #80 /O B        // Push mean_y
+     F                   // Subtract
+     
+     G                   // Multiply
+     sxy1 #80 /O B      // Push current sum
+     E                   // Add to sum
+     C sxy1!            // Store sum
+     
+     G                   // Square term
+     sxx1 #80 /O B
+     E
+     C sxx1!
+     
+     // For x2 term
+     /i x2? #80 /O B
+     m2 #80 /O B
+     F
+     " #80 /O
+     
+     /i y? #80 /O B
+     my #80 /O B
+     F
+     
+     G
+     sxy2 #80 /O B
+     E
+     C sxy2!
+     
+     G
+     sxx2 #80 /O B
+     E
+     C sxx2!
    )
    
    // Calculate coefficients
-   sxy1 sxx1 B B H C b1!  // b1 = sxy1/sxx1
-   sxy2 sxx2 B B H C b2!  // b2 = sxy2/sxx2
+   sxy1 #80 /O B
+   sxx1 #80 /O B
+   H
+   C b1!
+   
+   sxy2 #80 /O B
+   sxx2 #80 /O B
+   H
+   C b2!
 ;
 
 // Calculate intercept
-:P my B                    // Start with mean_y
-   m1 b1 B B G C B B F    // Subtract b1*mean_x1
-   m2 b2 B B G C B B F    // Subtract b2*mean_x2
-   C b0!                  // Store in b0
+:P my #80 /O B          // Push mean_y
+   m1 #80 /O B          // Push mean_x1
+   b1 #80 /O B          // Push b1
+   G                     // Multiply
+   F                     // Subtract
+   m2 #80 /O B          // Push mean_x2
+   b2 #80 /O B          // Push b2
+   G                     // Multiply
+   F                     // Subtract
+   C b0!                // Store intercept
 ;
 
 // Print results
-:Q `Regression Equation:` /N
-   `y = ` b0 10000 / .
-   ` + ` b1 10000 / .
-   `x1 + ` b2 10000 / .
+:Q `Multiple Regression Results:` /N
+   `y = ` b0 100 * .    // Scale up for display
+   ` + ` b1 100 * .
+   `x1 + ` b2 100 * .
    `x2` /N
+   `(Note: coefficients scaled by 100)` /N
 ;
 
 // Main regression function
